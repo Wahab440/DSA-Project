@@ -2,148 +2,147 @@
 #include <SFML/Audio.hpp>
 #include <iostream>
 #include <map>
-#include <vector>
 #include <queue>
-#include <cstdlib>
+#include <fstream>
 #include <ctime>
 #include <cmath>
-using namespace std;
+#include <algorithm>
 using namespace sf;
+using namespace std;
 
-const float CELL_SIZE = 60.0f;
-const int GRID_SIZE = 10;
-const int BOARD_SIZE = 100;
-const int WINDOW_SIZE = CELL_SIZE * GRID_SIZE;
+const int NUM_CELLS = 100;
+const int BOARD_DIM = 10;
+const float TILE_SIZE = 60.f;
+const int WIN_SIZE = TILE_SIZE * BOARD_DIM;
+const vector<Color> TOKEN_COLORS = {Color::Blue, Color::Red, Color::Green, Color::Yellow};
 
-vector<Color> PLAYER_COLORS = {Color::Blue, Color::Red, Color::Green, Color::Magenta};
-
-class PlayerSelector
+int rollDice()
 {
-public:
-    int selectPlayers(RenderWindow &window, Font &font)
+    return rand() % 6 + 1;
+}
+
+int choosePlayers(RenderWindow &win, Font &font)
+{
+    int choice = -1;
+    while (win.isOpen() && choice == -1)
     {
-        int selected = -1;
-        while (window.isOpen() && selected == -1)
+        Event evt;
+        while (win.pollEvent(evt))
         {
-            Event event;
-            while (window.pollEvent(event))
+            if (evt.type == Event::Closed)
             {
-                if (event.type == Event::Closed)
-                    window.close();
-                if (event.type == Event::MouseButtonPressed && event.mouseButton.button == Mouse::Left)
+                win.close();
+            }
+            if (evt.type == Event::MouseButtonPressed && evt.mouseButton.button == Mouse::Left)
+            {
+                Vector2i m = Mouse::getPosition(win);
+                for (int idx = 0; idx < 3; ++idx)
                 {
-                    Vector2i pos = Mouse::getPosition(window);
-                    for (int i = 0; i < 3; ++i)
+                    FloatRect rect(160 + idx * 140, 210, 110, 120);
+                    if (rect.contains(m.x, m.y))
                     {
-                        FloatRect box(150 + i * 120, 250, 100, 120);
-                        if (box.contains(pos.x, pos.y))
-                            selected = 2 + i;
+                        choice = 2 + idx;
                     }
                 }
             }
-            window.clear(Color(135, 206, 250));
-
-            Text title("<<Welcome to Snake And Ladder>>", font, 28);
-            title.setFillColor(Color(40, 30, 60));
-            title.setStyle(Text::Bold);
-            FloatRect titleRect = title.getLocalBounds();
-            title.setOrigin(titleRect.left + titleRect.width / 2.0f, 0);
-            title.setPosition(WINDOW_SIZE / 2, 38);
-            window.draw(title);
-
-            Text heading("Select Number of Players", font, 32);
-            heading.setFillColor(Color(40, 30, 60));
-            heading.setPosition(WINDOW_SIZE / 2 - 180, 100);
-            window.draw(heading);
-
-            for (int i = 0; i < 3; ++i)
-            {
-                RectangleShape btn(Vector2f(100, 120));
-                btn.setPosition(150 + i * 120, 250);
-                btn.setFillColor(Color(245, 245, 245));
-                btn.setOutlineThickness(4);
-                btn.setOutlineColor(Color(100, 100, 100));
-                window.draw(btn);
-
-                Text num(to_string(2 + i), font, 36);
-                num.setFillColor(Color(40, 30, 60));
-                num.setStyle(Text::Bold);
-
-                FloatRect numRect = num.getLocalBounds();
-                num.setOrigin(numRect.left + numRect.width / 2.0f, 0);
-                num.setPosition(150 + i * 120 + 50, 260);
-                window.draw(num);
-
-                int playerCount = 2 + i;
-                float startY = 290;
-                float gap = 30;
-                float x = 150 + i * 120 + 50;
-                for (int j = 0; j < playerCount; ++j)
-                {
-                    CircleShape circle(15);
-                    circle.setFillColor(PLAYER_COLORS[j]);
-                    circle.setOutlineThickness(2);
-                    circle.setOutlineColor(Color(70, 70, 70));
-                    circle.setOrigin(15, 15);
-                    circle.setPosition(x, startY + j * gap);
-                    window.draw(circle);
-                }
-            }
-
-            Text clickNote("Click a box to continue", font, 22);
-            clickNote.setFillColor(Color(80, 80, 80));
-            clickNote.setPosition(WINDOW_SIZE / 2 - 120, WINDOW_SIZE - 60);
-            window.draw(clickNote);
-
-            window.display();
         }
-        return selected;
+        win.clear(Color(120, 196, 240));
+        Text msg("Snake & Ladder", font, 34);
+        msg.setFillColor(Color(25, 20, 40));
+        msg.setStyle(Text::Bold | Text::Underlined);
+        msg.setPosition(WIN_SIZE / 2 - 140, 30);
+        win.draw(msg);
+
+        Text opt("Select Number of Players", font, 28);
+        opt.setPosition(WIN_SIZE / 2 - 190, 100);
+        win.draw(opt);
+
+        for (int idx = 0; idx < 3; ++idx)
+        {
+            RectangleShape box(Vector2f(110, 120));
+            box.setPosition(160 + idx * 140, 210);
+            box.setFillColor(Color(250, 250, 250));
+            box.setOutlineThickness(3);
+            box.setOutlineColor(Color(90, 90, 90));
+            win.draw(box);
+
+            Text pNum(to_string(2 + idx), font, 36);
+            pNum.setPosition(160 + idx * 140 + 35, 220);
+            win.draw(pNum);
+
+            for (int t = 0; t < 2 + idx; ++t)
+            {
+                CircleShape token(13);
+                token.setFillColor(TOKEN_COLORS[t]);
+                token.setOutlineThickness(2);
+                token.setOutlineColor(Color(60, 60, 60));
+                token.setOrigin(13, 13);
+                token.setPosition(160 + idx * 140 + 55, 260 + t * 28);
+                win.draw(token);
+            }
+        }
+        Text note("Click a box to continue", font, 18);
+        note.setPosition(WIN_SIZE / 2 - 95, WIN_SIZE - 50);
+        win.draw(note);
+        win.display();
     }
-};
+    return choice;
+}
 
-class SnakeAndLadder
+class SnakeLadderGame
 {
-private:
-    map<int, int> snakes;
-    map<int, int> ladders;
-    vector<int> players;
-    queue<int> playerQueue;
-    int numPlayers;
-    RenderWindow &window;
-    vector<Color> playerColors;
-    Font &font;
-    bool gameOver = false;
-    int winner = -1, lastDice = 1;
-
-    SoundBuffer moveBuffer;
-    Sound moveSound;
-    bool soundLoaded = false;
+    map<int, int> snakePos, ladderPos;
+    vector<int> tokens;
+    queue<int> order;
+    int activePlayers;
+    RenderWindow &win;
+    vector<Color> tColors;
+    Font &gameFont;
+    bool gameEnded = false;
+    int champ = -1, diceVal = 1;
+    SoundBuffer buf;
+    Sound moveFx;
+    bool sfxReady = false;
 
 public:
-    SnakeAndLadder(int numPlayers, RenderWindow &window, Font &font)
-        : numPlayers(numPlayers), window(window), font(font)
+    SnakeLadderGame(int n, RenderWindow &w, Font &f)
+        : activePlayers(n), win(w), gameFont(f)
     {
-        initializeBoard();
-        initializePlayers();
-        loadAssets();
-        srand(static_cast<unsigned>(time(0)));
+        srand(time(0));
+        loadBoard();
+        setupTokens();
+        prepSound();
     }
-    void run()
+
+    void start()
     {
-        while (window.isOpen())
+        string fileOut = "results.txt";
+        while (win.isOpen())
         {
-            Event event;
-            while (window.pollEvent(event))
+            Event evt;
+            while (win.pollEvent(evt))
             {
-                if (event.type == Event::Closed)
-                    window.close();
-                if (!gameOver && event.type == Event::KeyPressed && event.key.code == Keyboard::Space)
+                if (evt.type == Event::Closed)
                 {
-                    playTurn();
+                    win.close();
                 }
-                if (gameOver && event.type == Event::KeyPressed && event.key.code == Keyboard::Enter)
+                if (!gameEnded && evt.type == Event::KeyPressed && evt.key.code == Keyboard::Space)
                 {
-                    window.close();
+                    doTurn();
+                }
+                if (!gameEnded && evt.type == Event::KeyPressed && evt.key.code == Keyboard::P)
+                {
+                    showBFSPath();
+                }
+                if (!gameEnded && evt.type == Event::KeyPressed && evt.key.code == Keyboard::D)
+                {
+                    showDijkstraPath();
+                }
+                if (gameEnded && evt.type == Event::KeyPressed && evt.key.code == Keyboard::Enter)
+                {
+                    saveResults(fileOut);
+                    displayResults(fileOut);
+                    win.close();
                 }
             }
             render();
@@ -151,273 +150,449 @@ public:
     }
 
 private:
-    void initializeBoard()
+    void loadBoard()
     {
-        snakes = {{16, 6}, {47, 26}, {49, 11}, {56, 53}, {62, 19}, {64, 60}, {87, 24}, {93, 73}, {95, 75}, {98, 78}};
-        ladders = {{2, 38}, {4, 14}, {9, 31}, {21, 42}, {28, 84}, {36, 44}, {51, 67}, {71, 91}, {80, 100}};
-    }
-    void initializePlayers()
-    {
-        playerColors = PLAYER_COLORS;
-        players.assign(numPlayers, 1);
-        for (int i = 0; i < numPlayers; i++)
-            playerQueue.push(i);
-    }
-    void loadAssets()
-    {
-        string assetDir = "./assets/";
-        soundLoaded = moveBuffer.loadFromFile(assetDir + "move.wav");
-        if (soundLoaded)
-            moveSound.setBuffer(moveBuffer);
+        snakePos = { {16, 4}, {47, 26}, {49, 11}, {62, 19}, {64, 60},
+                     {87, 24}, {93, 73}, {95, 75}, {98, 78} };
+        ladderPos = { {3, 38}, {6, 14}, {9, 31}, {21, 42}, {28, 84},
+                      {36, 44}, {51, 67}, {71, 91}, {80, 100} };
     }
 
-    void playTurn()
+    void setupTokens()
     {
-        int current = playerQueue.front();
-        playerQueue.pop();
-        int dice = (rand() % 6) + 1;
-        lastDice = dice;
-        int oldPos = players[current];
-        int newPos = oldPos + dice;
-        std::cout << "Player " << (current + 1) << " rolled a " << dice << " and moved from " << oldPos;
-        if (newPos <= 100)
+        tColors = TOKEN_COLORS;
+        tokens.assign(activePlayers, 1);
+        for (int idx = 0; idx < activePlayers; ++idx)
         {
-            players[current] = newPos;
-            std::cout << " to " << newPos;
-            if (snakes.count(newPos))
+            order.push(idx);
+        }
+    }
+
+    void prepSound()
+    {
+        string folder = "./assets/";
+        sfxReady = buf.loadFromFile(folder + "move.wav");
+        if (sfxReady)
+        {
+            moveFx.setBuffer(buf);
+        }
+    }
+
+    pair<float, float> locateCell(int cell, int idx = 0, int nT = 1, int pos = 0)
+    {
+        int r = (cell - 1) / BOARD_DIM, c = (cell - 1) % BOARD_DIM;
+        if (r % 2 == 1)
+        {
+            c = BOARD_DIM - 1 - c;
+        }
+        r = BOARD_DIM - 1 - r;
+        float cx = c * TILE_SIZE + TILE_SIZE / 2;
+        float cy = r * TILE_SIZE + TILE_SIZE / 2;
+        if (nT > 1)
+        {
+            float angle = 2 * M_PI * pos / nT;
+            cx += 12 * cos(angle);
+            cy += 12 * sin(angle);
+        }
+        return { cx, cy };
+    }
+
+    void doTurn()
+    {
+        int who = order.front();
+        order.pop();
+        int roll = rollDice();
+        diceVal = roll;
+        int prior = tokens[who];
+        int next = prior + roll;
+        cout << "Player " << (who + 1) << " rolled " << roll << " from " << prior;
+        if (next <= 100)
+        {
+            tokens[who] = next;
+            cout << " to " << next;
+            if (snakePos.count(next))
             {
-                players[current] = snakes[newPos];
-                std::cout << " and was beaten by a snake to " << players[current] << "!\n";
+                tokens[who] = snakePos[next];
+                cout << ", bitten to " << tokens[who];
             }
-            else if (ladders.count(newPos))
+            else if (ladderPos.count(next))
             {
-                players[current] = ladders[newPos];
-                std::cout << " and climbed a ladder to " << players[current] << "!\n";
+                tokens[who] = ladderPos[next];
+                cout << ", climbed to " << tokens[who];
             }
-            else
-            {
-                std::cout << ".\n";
-            }
+            cout << endl;
         }
         else
         {
-            std::cout << " but cannot move (must land exactly on 100).\n";
+            cout << " but must land exactly on 100.\n";
         }
-
-        if (soundLoaded)
+        if (sfxReady)
         {
-            moveSound.play();
+            moveFx.play();
         }
-        if (players[current] == 100)
+        if (tokens[who] == 100)
         {
-            winner = current;
-            gameOver = true;
-            std::cout << "Player " << (winner + 1) << " wins the game!\n";
+            champ = who;
+            gameEnded = true;
+            cout << "Player " << (champ + 1) << " wins!\n";
         }
         else
         {
-            playerQueue.push(current);
+            order.push(who);
         }
-    }
-
-    // Offset tokens to avoid complete overlap when on same cell
-    std::pair<float, float> getCellCoordinates(int pos, int playerIdx = 0, int nOnCell = 1, int tokenOrder = 0)
-    {
-        // Convert linear cell number to grid position
-        int row = (pos - 1) / GRID_SIZE;
-        int col = (pos - 1) % GRID_SIZE;
-
-        // Snake pattern: reverse direction every other row
-        if (row % 2 == 1)
-        {
-            col = GRID_SIZE - 1 - col;
-        }
-
-        // Flip vertically so row 0 is bottom of board
-        row = GRID_SIZE - 1 - row;
-
-        // Compute center coordinates of the cell
-        float x = col * CELL_SIZE + CELL_SIZE / 2.0f;
-        float y = row * CELL_SIZE + CELL_SIZE / 2.0f;
-
-        // Offset for visual spacing when multiple tokens on one cell
-        if (nOnCell > 1)
-        {
-            float angle = 2 * 3.14159f * tokenOrder / nOnCell;
-            float radius = 12.0f; // Distance from center for token separation
-            x += radius * std::cos(angle);
-            y += radius * std::sin(angle);
-        }
-
-        return {x, y};
     }
 
     void render()
     {
-        window.clear(Color(255, 255, 240)); // Ivory
-        // Draw checkerboard, blue/white
-        for (int i = 0; i < GRID_SIZE; ++i)
+        win.clear(Color(255, 255, 240));
+        for (int i = 0; i < BOARD_DIM; ++i)
         {
-            for (int j = 0; j < GRID_SIZE; ++j)
+            for (int j = 0; j < BOARD_DIM; ++j)
             {
-                RectangleShape cell(Vector2f(CELL_SIZE, CELL_SIZE));
-                cell.setPosition(j * CELL_SIZE, i * CELL_SIZE);
-                cell.setFillColor(((i + j) % 2 == 0) ? Color(145, 197, 255) : Color::White); // light blue and white
-                window.draw(cell);
+                RectangleShape tile(Vector2f(TILE_SIZE, TILE_SIZE));
+                tile.setPosition(j * TILE_SIZE, i * TILE_SIZE);
+                tile.setFillColor(((i + j) % 2) ? Color::White : Color(120, 180, 255));
+                win.draw(tile);
             }
         }
-        // Draw ladders as orange lines with rungs
-        for (auto &l : ladders)
-            drawConnection(l.first, l.second, true);
-        // Draw snakes as green wavy lines
-        for (auto &s : snakes)
-            drawConnection(s.first, s.second, false);
-        // Compute number of tokens at each cell
-        map<int, vector<int>> cellTokens;
-        for (int i = 0; i < numPlayers; ++i)
-            cellTokens[players[i]].push_back(i);
-        // Draw players (with offsets if >1 at a cell)
-        for (auto &[pos, indices] : cellTokens)
+        for (auto &lad : ladderPos)
         {
-            for (size_t k = 0; k < indices.size(); ++k)
+            drawConnector(lad.first, lad.second, true);
+        }
+        for (auto &snk : snakePos)
+        {
+            drawConnector(snk.first, snk.second, false);
+        }
+        map<int, vector<int>> onCell;
+        for (int idx = 0; idx < activePlayers; ++idx)
+        {
+            onCell[tokens[idx]].push_back(idx);
+        }
+        for (auto &[cell, ids] : onCell)
+        {
+            for (size_t k = 0; k < ids.size(); ++k)
             {
-                int i = indices[k];
-                auto [x, y] = getCellCoordinates(players[i], i, indices.size(), k);
-                CircleShape token(15);
-                token.setFillColor(playerColors[i]);
-                token.setOutlineThickness(2);
-                token.setOutlineColor(Color::Black);
-                token.setPosition(x - 15, y - 15);
-                window.draw(token);
+                int idx = ids[k];
+                auto [x, y] = locateCell(tokens[idx], idx, ids.size(), k);
+                CircleShape tok(15);
+                tok.setFillColor(tColors[idx]);
+                tok.setOutlineThickness(2);
+                tok.setOutlineColor(Color::Black);
+                tok.setPosition(x - 15, y - 15);
+                win.draw(tok);
             }
         }
-
-        float infoHeight = 46;
-        RectangleShape infoBox(Vector2f(WINDOW_SIZE * 0.8f, infoHeight));
-        infoBox.setFillColor(Color(30, 30, 30, 230));
-        infoBox.setPosition(WINDOW_SIZE * 0.1f, 8);
-        window.draw(infoBox);
-
-        if (!gameOver)
+        float infoH = 36;
+        RectangleShape bar(Vector2f(WIN_SIZE * 0.82f, infoH));
+        bar.setFillColor(Color(30, 30, 30, 230));
+        bar.setPosition(WIN_SIZE * 0.09f, 6);
+        win.draw(bar);
+        if (!gameEnded)
         {
-            int turn = playerQueue.front();
-            RectangleShape turnBox(Vector2f(32, 32));
-            turnBox.setPosition(WINDOW_SIZE * 0.12f, 14);
-            turnBox.setFillColor(playerColors[turn]);
-            turnBox.setOutlineThickness(2);
-            turnBox.setOutlineColor(Color::White);
-            window.draw(turnBox);
-
-            Text turnText("Player " + to_string(turn + 1) + "'s turn. Dice: " + to_string(lastDice) + "  (Press SPACE)", font, 24);
-            turnText.setFillColor(Color::White);
-            turnText.setStyle(Text::Bold);
-            turnText.setPosition(WINDOW_SIZE * 0.12f + 40, 18);
-            window.draw(turnText);
+            int turn = order.front();
+            RectangleShape marker(Vector2f(24, 24));
+            marker.setPosition(WIN_SIZE * 0.10f, 13);
+            marker.setFillColor(tColors[turn]);
+            marker.setOutlineThickness(2);
+            marker.setOutlineColor(Color::White);
+            win.draw(marker);
+            Text t1("Player " + to_string(turn + 1) + "'s turn. Dice: " + to_string(diceVal) + " (SPACE)", gameFont, 16);
+            t1.setFillColor(Color::White);
+            t1.setPosition(WIN_SIZE * 0.10f + 34, 15);
+            win.draw(t1);
+            Text t2("P: BFS Path  |  D: Dijkstra Path (See terminal)", gameFont, 13);
+            t2.setFillColor(Color(55, 55, 55));
+            t2.setPosition(WIN_SIZE * 0.09f + 6, 6 + infoH + 2);
+            win.draw(t2);
         }
-
         else
         {
-            RectangleShape overlay(Vector2f(GRID_SIZE * CELL_SIZE, GRID_SIZE * CELL_SIZE));
-            overlay.setFillColor(Color(0, 0, 0, 180));
-            window.draw(overlay);
-            Text winText("Player " + to_string(winner + 1) + " Wins!", font, 44);
-            winText.setFillColor(playerColors[winner]);
-            winText.setOutlineThickness(4);
-            winText.setOutlineColor(Color::White);
-            winText.setPosition((GRID_SIZE * CELL_SIZE) / 2 - 180, (GRID_SIZE * CELL_SIZE) / 2 - 40);
-            window.draw(winText);
-            Text pressEnter("Press ENTER to exit...", font, 28);
-            pressEnter.setFillColor(Color::Yellow);
-            pressEnter.setPosition((GRID_SIZE * CELL_SIZE) / 2 - 130, (GRID_SIZE * CELL_SIZE) / 2 + 30);
-            window.draw(pressEnter);
+            RectangleShape overlay(Vector2f(WIN_SIZE, WIN_SIZE));
+            overlay.setFillColor(Color(0, 0, 0, 175));
+            win.draw(overlay);
+            Text winT("Player " + to_string(champ + 1) + " Wins!", gameFont, 42);
+            winT.setFillColor(tColors[champ]);
+            winT.setPosition(WIN_SIZE / 2 - 170, WIN_SIZE / 2 - 60);
+            win.draw(winT);
+            Text endT("Press ENTER to see scores...", gameFont, 26);
+            endT.setFillColor(Color::Yellow);
+            endT.setPosition(WIN_SIZE / 2 - 120, WIN_SIZE / 2 + 20);
+            win.draw(endT);
         }
-        window.display();
+        win.display();
     }
-    void drawConnection(int from, int to, bool isLadder)
+
+    void drawConnector(int a, int b, bool ladder)
     {
-        auto [x1, y1] = getCellCoordinates(from);
-        auto [x2, y2] = getCellCoordinates(to);
-
-        float dx = x2 - x1;
-        float dy = y2 - y1;
-        float len = std::sqrt(dx * dx + dy * dy);
-        float nx = -dy / len;
-        float ny = dx / len;
-
-        if (!isLadder)
+        auto [x1, y1] = locateCell(a), [x2, y2] = locateCell(b);
+        float dx = x2 - x1, dy = y2 - y1, len = sqrt(dx * dx + dy * dy);
+        if (!ladder)
         {
-            const int points = 80;
-            sf::VertexArray snake(sf::TriangleStrip, points * 2);
-
-            for (int i = 0; i < points; ++i)
+            int N = 45;
+            vector<Vector2f> pts(N);
+            for (int i = 0; i < N; ++i)
             {
-                float t = i / static_cast<float>(points - 1);
-                float px = x1 * (1 - t) + x2 * t;
-                float py = y1 * (1 - t) + y2 * t;
-                float wave = 10 * std::sin(t * 6.2831f * 3 + from + to);
-
-                float ox = wave * nx;
-                float oy = wave * ny;
-
-                float thickness = 5;
-
-                snake[2 * i] = sf::Vertex(sf::Vector2f(px + ox + nx * thickness, py + oy + ny * thickness), sf::Color(10, 180, 10));
-                snake[2 * i + 1] = sf::Vertex(sf::Vector2f(px + ox - nx * thickness, py + oy - ny * thickness), sf::Color(10, 150, 10));
+                float t = i / float(N - 1);
+                float px = x1 * (1 - t) + x2 * t, py = y1 * (1 - t) + y2 * t;
+                float sway = 13 * sin(t * 2 * M_PI * 2 + a + b);
+                float nx = (y2 - y1) / len, ny = -(x2 - x1) / len;
+                px += sway * nx;
+                py += sway * ny;
+                pts[i] = Vector2f(px, py);
             }
-
-            window.draw(snake);
+            float thick = 14.0f;
+            VertexArray snake(TriangleStrip, N * 2);
+            for (int i = 0; i < N; ++i)
+            {
+                float dx = 0, dy = 0;
+                if (i > 0)
+                {
+                    dx = pts[i].x - pts[i - 1].x;
+                    dy = pts[i].y - pts[i - 1].y;
+                }
+                else if (i < N - 1)
+                {
+                    dx = pts[i + 1].x - pts[i].x;
+                    dy = pts[i + 1].y - pts[i].y;
+                }
+                float nrm = sqrt(dx * dx + dy * dy);
+                if (nrm == 0)
+                {
+                    nrm = 1;
+                }
+                float nx = -dy / nrm, ny = dx / nrm;
+                snake[2 * i].position = Vector2f(pts[i].x + nx * (thick / 2), pts[i].y + ny * (thick / 2));
+                snake[2 * i + 1].position = Vector2f(pts[i].x - nx * (thick / 2), pts[i].y - ny * (thick / 2));
+                snake[2 * i].color = snake[2 * i + 1].color = Color(40, 160, 40);
+            }
+            win.draw(snake);
         }
         else
         {
-            float railThickness = 6.0f;
-            sf::Vector2f dir = sf::Vector2f(x2 - x1, y2 - y1);
-            float angle = std::atan2(dir.y, dir.x) * 180 / 3.14159f;
-            float railLength = len;
-
+            float off = 10.0f, nx = -dy / len, ny = dx / len;
             for (int side = -1; side <= 1; side += 2)
             {
-                sf::RectangleShape rail(sf::Vector2f(railLength, railThickness));
-                rail.setFillColor(sf::Color(160, 82, 45)); 
-                rail.setOrigin(0, railThickness / 2.0f);
-                rail.setRotation(angle);
-                rail.setPosition(x1 + side * nx * 10, y1 + side * ny * 10);
-                window.draw(rail);
+                VertexArray rail(Lines, 2);
+                rail[0].position = Vector2f(x1 + side * nx * off, y1 + side * ny * off);
+                rail[1].position = Vector2f(x2 + side * nx * off, y2 + side * ny * off);
+                rail[0].color = rail[1].color = Color(230, 110, 40);
+                win.draw(rail);
             }
-
-            int numRungs = 6;
-            float rungThickness = 3.0f;
-            for (int r = 1; r < numRungs; ++r)
+            int rungs = 7;
+            for (int r = 1; r < rungs; ++r)
             {
-                float t = r / static_cast<float>(numRungs);
-                float px = x1 * (1 - t) + x2 * t;
-                float py = y1 * (1 - t) + y2 * t;
-
-                float rungLen = CELL_SIZE * 0.4f;
-                sf::RectangleShape rung(sf::Vector2f(rungLen * 2, rungThickness));
-                rung.setFillColor(sf::Color(210, 140, 60)); 
-                rung.setOrigin(rungLen, rungThickness / 2.0f);
-                rung.setRotation(angle);
-                rung.setPosition(px, py);
-                window.draw(rung);
+                float t = r / float(rungs);
+                float px = x1 * (1 - t) + x2 * t, py = y1 * (1 - t) + y2 * t;
+                VertexArray rung(Lines, 2);
+                rung[0].position = Vector2f(px + nx * off, py + ny * off);
+                rung[1].position = Vector2f(px - nx * off, py - ny * off);
+                rung[0].color = rung[1].color = Color(230, 170, 80);
+                win.draw(rung);
             }
+        }
+    }
+
+    void saveResults(const string &fname)
+    {
+        ofstream f(fname);
+        for (int i = 0; i < activePlayers; ++i)
+        {
+            f << "Player " << (i + 1) << ": " << tokens[i] << endl;
+        }
+        f.close();
+    }
+
+    vector<string> loadResults(const string &fname)
+    {
+        ifstream f(fname);
+        vector<string> lines;
+        string s;
+        while (getline(f, s))
+        {
+            lines.push_back(s);
+        }
+        return lines;
+    }
+
+    void displayResults(const string &fname)
+    {
+        auto data = loadResults(fname);
+        RenderWindow resWin(VideoMode(WIN_SIZE, WIN_SIZE), "Final Scores");
+        while (resWin.isOpen())
+        {
+            Event evt;
+            while (resWin.pollEvent(evt))
+            {
+                if (evt.type == Event::Closed || (evt.type == Event::KeyPressed && evt.key.code == Keyboard::Escape))
+                {
+                    resWin.close();
+                }
+            }
+            resWin.clear(Color(120, 196, 240));
+            Text hd("Final Scores", gameFont, 44);
+            hd.setPosition(WIN_SIZE / 2 - 140, 60);
+            hd.setFillColor(Color(20, 20, 80));
+            resWin.draw(hd);
+            float y = 160, h = 56;
+            for (size_t i = 0; i < data.size(); ++i)
+            {
+                Text t(data[i], gameFont, 34);
+                t.setFillColor(i == champ ? Color(0, 180, 0) : Color::Black);
+                t.setStyle(i == champ ? Text::Bold : Text::Regular);
+                t.setPosition(WIN_SIZE / 2 - 110, y + i * h);
+                resWin.draw(t);
+            }
+            Text winnerT("Winner: Player " + to_string(champ + 1) + "!", gameFont, 32);
+            winnerT.setFillColor(Color(50, 160, 40));
+            winnerT.setStyle(Text::Bold);
+            winnerT.setPosition(WIN_SIZE / 2 - 90, y + data.size() * h + 16);
+            resWin.draw(winnerT);
+            Text note("ESC: Exit", gameFont, 26);
+            note.setPosition(WIN_SIZE / 2 - 50, WIN_SIZE - 80);
+            note.setFillColor(Color(60, 60, 60));
+            resWin.draw(note);
+            resWin.display();
+        }
+    }
+
+    void showBFSPath()
+    {
+        vector<int> jump(NUM_CELLS + 1);
+        for (int i = 1; i <= NUM_CELLS; ++i)
+        {
+            jump[i] = i;
+        }
+        for (auto &p : ladderPos)
+        {
+            jump[p.first] = p.second;
+        }
+        for (auto &s : snakePos)
+        {
+            jump[s.first] = s.second;
+        }
+        vector<bool> seen(NUM_CELLS + 1, 0);
+        vector<int> prev(NUM_CELLS + 1, -1);
+        queue<int> q;
+        q.push(1);
+        seen[1] = true;
+        while (!q.empty())
+        {
+            int c = q.front();
+            q.pop();
+            if (c == 100)
+            {
+                break;
+            }
+            for (int d = 1; d <= 6; ++d)
+            {
+                int nx = c + d;
+                if (nx <= 100 && !seen[jump[nx]])
+                {
+                    seen[jump[nx]] = 1;
+                    prev[jump[nx]] = c;
+                    q.push(jump[nx]);
+                }
+            }
+        }
+        if (seen[100])
+        {
+            vector<int> path;
+            for (int v = 100; v != -1; v = prev[v])
+            {
+                path.push_back(v);
+            }
+            reverse(path.begin(), path.end());
+            cout << "[BFS] Min Moves: " << path.size() - 1 << " Path: ";
+            for (size_t i = 0; i < path.size(); ++i)
+            {
+                cout << path[i] << (i + 1 == path.size() ? "\n" : "->");
+            }
+        }
+        else
+        {
+            cout << "[BFS] Unreachable\n";
+        }
+    }
+
+    void showDijkstraPath()
+    {
+        vector<int> jump(NUM_CELLS + 1);
+        for (int i = 1; i <= NUM_CELLS; ++i)
+        {
+            jump[i] = i;
+        }
+        for (auto &p : ladderPos)
+        {
+            jump[p.first] = p.second;
+        }
+        for (auto &s : snakePos)
+        {
+            jump[s.first] = s.second;
+        }
+        vector<int> dist(NUM_CELLS + 1, 1e9), prev(NUM_CELLS + 1, -1);
+        priority_queue<pair<int, int>, vector<pair<int, int>>, greater<>> pq;
+        dist[1] = 0;
+        pq.push({ 0, 1 });
+        while (!pq.empty())
+        {
+            auto [d, c] = pq.top();
+            pq.pop();
+            if (c == 100)
+            {
+                break;
+            }
+            for (int dice = 1; dice <= 6; ++dice)
+            {
+                int nx = c + dice;
+                if (nx <= 100)
+                {
+                    int to = jump[nx];
+                    if (dist[to] > dist[c] + 1)
+                    {
+                        dist[to] = dist[c] + 1;
+                        prev[to] = c;
+                        pq.push({ dist[to], to });
+                    }
+                }
+            }
+        }
+        if (dist[100] < 1e9)
+        {
+            vector<int> path;
+            for (int v = 100; v != -1; v = prev[v])
+            {
+                path.push_back(v);
+            }
+            reverse(path.begin(), path.end());
+            cout << "[Dijkstra] Min Moves: " << dist[100] << " Path: ";
+            for (size_t i = 0; i < path.size(); ++i)
+            {
+                cout << path[i] << (i + 1 == path.size() ? "\n" : "->");
+            }
+        }
+        else
+        {
+            cout << "[Dijkstra] Unreachable\n";
         }
     }
 };
 
 int main()
 {
-    RenderWindow window(VideoMode(WINDOW_SIZE, WINDOW_SIZE), "Snake and Ladder");
+    RenderWindow window(VideoMode(WIN_SIZE, WIN_SIZE), "Snake and Ladder");
     Font font;
     if (!font.loadFromFile("./assets/DejaVuSans.ttf"))
     {
         std::cerr << "Failed to load font! Make sure DejaVuSans.ttf is in assets folder.\n";
         return 1;
     }
-    PlayerSelector selector;
-    int numPlayers = selector.selectPlayers(window, font);
+    int numPlayers = choosePlayers(window, font);
     if (numPlayers < 2 || numPlayers > 4)
+    {
         return 0;
-    SnakeAndLadder game(numPlayers, window, font);
-    game.run();
+    }
+    SnakeLadderGame game(numPlayers, window, font);
+    game.start();
     return 0;
 }
+
